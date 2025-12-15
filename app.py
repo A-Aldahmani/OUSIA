@@ -6,8 +6,7 @@ import streamlit as st
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
 st.title("OUSIA LLM Adaptive Response Simulator (2040)")
-st.caption("Group 5 IP2 LLM Demo")
-st.markdown('<p style="font-size: 20px;">This is a custom sized caption.</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo.</p>', unsafe_allow_html=True)
 st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
 
 mode = st.radio(
@@ -406,4 +405,4 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
 
-st.caption("Now you know how OUSIA thinks!")
+st.markdown('<p style="font-size: 30px;">Now you know how OUSIA thinks!.</p>', unsafe_allow_html=True)
