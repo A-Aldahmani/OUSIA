@@ -127,21 +127,15 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
 # HuggingFace LLM (Conversational / chat_completion)
 # ----------------------------
 def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
-    """
-    Uses chat_completion because mistralai/Mistral-7B-Instruct-v0.3 is supported as a conversational task.
-    Uses Streamlit Secrets: HF_TOKEN
-    """
     hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    # IMPORTANT: don't let "auto" choose an incompatible provider/task mapping
     chosen_provider = "hf-inference" if provider == "auto" else provider
     client = InferenceClient(api_key=hf_token, provider=chosen_provider)
 
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
 
-    # Keep user prompt separate; don't duplicate system prompt inside it
     user_prompt = (
         f"PATIENT_STATE:\n{json.dumps(patient, indent=2)}\n\n"
         f"POLICY_GATE_ALLOWED_MODES:\n{json.dumps(gate['allowed'], indent=2)}\n\n"
@@ -161,6 +155,10 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
         "- ethics_flags\n"
     )
 
+    text = None
+    last_error = None
+
+    # 1) Try chat completion first
     try:
         resp = client.chat_completion(
             model=model_id,
@@ -172,18 +170,45 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
             temperature=0.2,
             top_p=0.9,
         )
-
         text = resp.choices[0].message.content
+    except Exception as e:
+        last_error = e
 
-        # Parse JSON safely (extract first {...} block)
+    # 2) Fallback to text generation if chat route not available
+    if text is None:
+        try:
+            prompt = f"{system_prompt}\n\n{user_prompt}"
+            text = client.text_generation(
+                prompt,
+                model=model_id,
+                max_new_tokens=450,
+                temperature=0.2,
+                top_p=0.9,
+            )
+        except Exception as e:
+            last_error = e
+
+    # If both failed, return a debug-friendly safe response
+    if text is None:
+        st.error(f"LLM error: {type(last_error).__name__}: {last_error}")
+        return {
+            "detected_signals": ["llm_call_error"],
+            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
+            "decision": "diagnosis",
+            "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
+            "policy_reasons": gate["reasons"] + [f"LLM error: {type(last_error).__name__}"],
+            "ethics_flags": ["reliability: LLM request failure"]
+        }
+
+    # Parse JSON safely
+    try:
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end == -1 or end <= start:
             raise ValueError("Model response did not contain a JSON object.")
-
         parsed = json.loads(text[start:end + 1])
 
-        # Hard safety: never allow output to pick a blocked mode
+        # Hard safety: never allow blocked decision
         allowed = gate["allowed"]
         decision = parsed.get("decision")
         if decision and not allowed.get(decision, False):
@@ -198,16 +223,14 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
         return parsed
 
     except Exception as e:
-        # Helpful during debugging; you can comment this out for final demo
-        st.error(f"LLM error: {type(e).__name__}: {e}")
-
+        st.error(f"LLM parse error: {type(e).__name__}: {e}")
         return {
-            "detected_signals": ["llm_call_error"],
-            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
+            "detected_signals": ["output_parse_error"],
+            "likely_conditions": [{"name": "unable to parse model output", "confidence": 0.0}],
             "decision": "diagnosis",
             "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-            "policy_reasons": gate["reasons"] + [f"LLM error: {type(e).__name__}"],
-            "ethics_flags": ["reliability: LLM request failure"]
+            "policy_reasons": gate["reasons"] + ["Model output was not valid JSON; forced safe fallback."],
+            "ethics_flags": ["reliability: model output parse failure"]
         }
 
 # ----------------------------
