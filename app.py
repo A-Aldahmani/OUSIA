@@ -194,8 +194,8 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
 # ----------------------------
 st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
 
-case = st.selectbox("Demo Scenarios", ["Search"] + list(DEMO_CASES.keys()))
-if case != "(Custom)":
+case = st.selectbox("Demo Scenarios", ["(Search)"] + list(DEMO_CASES.keys()))
+if case != "(Search)":
     preset = DEMO_CASES[case]
 else:
     preset = {
