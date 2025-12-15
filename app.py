@@ -314,7 +314,9 @@ with c1:
 
 with c2:
     st.markdown("### Allowed Modes")
-    modes = [k for k, v in gate["allowed"].items() if v]
+
+    # Capitalize mode names for display
+    modes = [k.capitalize() for k, v in gate["allowed"].items() if v]
     st.info(", ".join(modes))
 
 if st.button("Ingest OUSIA & Diagnose"):
