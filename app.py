@@ -23,13 +23,8 @@ model_id = st.text_input(
     value="HuggingFaceH4/zephyr-7b-beta",
 )
 
-# Provider: avoids auto-selecting a provider that doesn't support the task for this model
-provider = st.selectbox(
-    "Inference Provider",
-    ["hf-inference", "auto"],
-    index=0,
-    help="Debug for Group 5 Coders"
-)
+provider = "hf-inference"
+st.caption("Inference provider locked to hf-inference for model compatibility.")
 
 CLINICAL_PROMPT = (
     "You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.\n"
