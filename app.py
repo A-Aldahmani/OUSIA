@@ -302,7 +302,11 @@ gate = policy_gate(consent, goal, contra)
 c1, c2 = st.columns([1, 1])
 with c1:
     st.markdown("### Policy Gate")
-    st.write(gate["allowed"])
+
+    # Capitalize keys for display only
+    display_gate = {k.capitalize(): v for k, v in gate["allowed"].items()}
+    st.write(display_gate)
+
     if gate["reasons"]:
         st.warning("\n".join(gate["reasons"]))
     else:
