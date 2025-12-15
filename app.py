@@ -14,14 +14,13 @@ st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Polic
 mode = st.radio(
     "Governing Framework",
     ["Clinical / Regulated", "Speculative / Enhancement-forward"],
-    help="Demonstrates how different ethical-policy regimes affect the same technology."
+    help="Trying Two Approaches for different Ethical-Policy Regimes and Thought-Process"
 )
 
 # Optional: let you swap models easily
 model_id = st.text_input(
     "Hugging Face Model ID",
     value="mistralai/Mistral-7B-Instruct-v0.3",
-    help="Example: mistralai/Mistral-7B-Instruct-v0.3"
 )
 
 # Provider: avoids auto-selecting a provider that doesn't support the task for this model
@@ -29,7 +28,7 @@ provider = st.selectbox(
     "Inference Provider",
     ["hf-inference", "auto"],
     index=0,
-    help="If 'auto' fails, keep 'hf-inference'."
+    help="Debug for Group 5 Coders"
 )
 
 CLINICAL_PROMPT = (
