@@ -6,7 +6,7 @@ import streamlit as st
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
 st.title("OUSIA LLM Adaptive Response Simulator (2040)")
-st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo.</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo</p>', unsafe_allow_html=True)
 st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
 
 mode = st.radio(
