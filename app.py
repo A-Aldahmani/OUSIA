@@ -192,27 +192,27 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
 # ----------------------------
 # UI
 # ----------------------------
-st.subheader("1) Choose a demo case (optional)")
-case = st.selectbox("Demo scenarios", ["(Custom)"] + list(DEMO_CASES.keys()))
+st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
+case = st.selectbox("Demo scenarios", ["Search"] + list(DEMO_CASES.keys()))
 if case != "(Custom)":
     preset = DEMO_CASES[case]
 else:
-    preset = {"symptoms": [], "hr": 75, "temp": 36.8, "bp_sys": 120, "bp_dia": 80, "spo2": 98, "goal": "restore", "consent": 2, "contra": []}
+    preset = {"Symptoms": [], "hr": 75, "temp": 36.8, "bp_sys": 120, "bp_dia": 80, "spo2": 98, "Goal": "Restore", "Consent": 2, "Contra": []}
 
 col1, col2 = st.columns(2)
 
 with col1:
     symptoms = st.multiselect(
         "Symptoms",
-        ["no symptoms", "fatigue", "fever", "localized pain", "redness", "swelling", "shortness of breath", "dizziness"],
-        default=preset["symptoms"]
+        ["No Symptoms", "Fatigue", "Fever", "Localized Pain", "Redness", "Swelling", "Shortness of Breath", "Dizziness"],
+        default=preset["Symptoms"]
     )
     goal = st.selectbox(
         "User goal",
-        ["restore", "performance", "cognitive"],
+        ["Restore", "Performance", "Cognitive"],
         index=["restore", "performance", "cognitive"].index(preset["goal"])
     )
-    consent = st.slider("Consent level", 1, 4, preset["consent"], help="1=diagnosis only, 2=repair, 3=augment, 4=enhance")
+    consent = st.slider("Consent level", 1, 4, preset["consent"], help="1=Diagnosis only, 2=Repair, 3=Augment, 4=Enhance")
 
 with col2:
     hr = st.number_input("Heart rate (bpm)", 30, 200, preset["hr"])
@@ -223,12 +223,12 @@ with col2:
 
 contra = st.multiselect(
     "Contraindications",
-    ["immunocompromised", "pregnant", "blood clot risk", "autoimmune flare risk"],
+    ["Immunocompromised", "Pregnant", "Blood Clot Risk", "Autoimmune Flare Risk"],
     default=preset["contra"]
 )
 
 st.divider()
-st.subheader("2) Run simulation")
+st.subheader("2) Run The Simulation (OUSIA Thought Process)")
 
 patient_state = {
     "symptoms": symptoms,
@@ -238,7 +238,7 @@ patient_state = {
     "contra": contra
 }
 
-gate = policy_gate(consent, goal, contra)
+gate = policy_gate(Consent, Goal, Contra)
 
 c1, c2 = st.columns([1, 1])
 with c1:
@@ -263,20 +263,20 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.markdown("### Decision")
     st.write(f"**{result['decision'].upper()}**")
 
-    st.markdown("### Detected signals")
+    st.markdown("### Detected Signals")
     st.write(result["detected_signals"])
 
-    st.markdown("### Likely conditions")
+    st.markdown("### Likely Conditions")
     st.write(result["likely_conditions"])
 
-    st.markdown("### Intervention plan")
+    st.markdown("### Intervention Plan")
     st.write(result["intervention_plan"])
 
     if result.get("ethics_flags"):
-        st.markdown("### Ethics flags")
+        st.markdown("### Ethics Flags")
         st.error("\n".join([f"- {x}" for x in result["ethics_flags"]]))
 
-    st.markdown("### Full structured output (JSON)")
+    st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
 
-st.caption("Tip: You can keep the same JSON schema even if you swap models later.")
+st.caption("Now you know how OUSIA thinks!")
