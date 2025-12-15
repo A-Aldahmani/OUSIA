@@ -17,12 +17,20 @@ mode = st.radio(
     help="Trying Two Approaches for different Ethical-Policy Regimes and Thought-Process"
 )
 
-# Lock model + provider for reliability (avoid auto-routing to incompatible providers like featherless-ai)
-MODEL_ID = "HuggingFaceH4/zephyr-7b-beta"
-PROVIDER = "hf-inference"
+# Model input (keep editable)
+model_id = st.text_input(
+    "Hugging Face Model ID",
+    value="HuggingFaceH4/zephyr-7b-beta",
+    help="Tip: choose a model that shows a Chat/Conversational provider on its model page."
+)
 
-st.caption(f"Model locked for demo reliability: {MODEL_ID}")
-st.caption(f"Provider locked for compatibility: {PROVIDER}")
+# IMPORTANT: default to auto so HF routes to a provider that actually hosts the model
+provider = st.selectbox(
+    "Inference Provider",
+    ["auto", "hf-inference"],
+    index=0,
+    help="Use AUTO for most chat LLMs. hf-inference often 404s because many models are not deployed there."
+)
 
 CLINICAL_PROMPT = (
     "You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.\n"
@@ -93,10 +101,6 @@ DEMO_CASES = {
 # Policy gate (rules)
 # ----------------------------
 def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> dict:
-    """
-    Hard rules that constrain what the goo is allowed to do.
-    consent: 1=diagnosis only, 2=repair, 3=augment, 4=enhance
-    """
     allowed = {"diagnosis": True, "repair": False, "augment": False, "enhance": False}
     reasons = []
 
@@ -117,18 +121,27 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     return {"allowed": allowed, "reasons": reasons}
 
 # ----------------------------
-# HuggingFace LLM (Conversational / chat_completion only)
+# Demo-safe fallback (so your app never dies)
 # ----------------------------
-def hf_llm(patient: dict, gate: dict, mode: str) -> dict:
-    """
-    Uses chat_completion only (conversational), locked to a compatible model/provider for demo reliability.
-    Uses Streamlit Secrets: HF_TOKEN
-    """
+def fallback_result(gate: dict, why: str) -> dict:
+    return {
+        "detected_signals": ["fallback_mode"],
+        "likely_conditions": [{"name": "LLM unavailable — using simulation fallback", "confidence": 0.0}],
+        "decision": "diagnosis",
+        "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
+        "policy_reasons": gate["reasons"] + [why],
+        "ethics_flags": ["reliability: fallback used"]
+    }
+
+# ----------------------------
+# HuggingFace LLM (CHAT ONLY — no text_generation fallback)
+# ----------------------------
+def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
     hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    client = InferenceClient(api_key=hf_token, provider=PROVIDER)
+    client = InferenceClient(api_key=hf_token, provider=provider)
 
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
 
@@ -153,7 +166,7 @@ def hf_llm(patient: dict, gate: dict, mode: str) -> dict:
 
     try:
         resp = client.chat_completion(
-            model=MODEL_ID,
+            model=model_id,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -162,12 +175,13 @@ def hf_llm(patient: dict, gate: dict, mode: str) -> dict:
             temperature=0.2,
             top_p=0.9,
         )
+
         text = resp.choices[0].message.content
 
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end == -1 or end <= start:
-            raise ValueError("Model response did not contain a JSON object.")
+            return fallback_result(gate, "Model did not return JSON; fallback activated.")
 
         parsed = json.loads(text[start:end + 1])
 
@@ -179,22 +193,13 @@ def hf_llm(patient: dict, gate: dict, mode: str) -> dict:
             parsed["ethics_flags"].append("policy_override: model chose a blocked mode; forced diagnosis-only.")
             parsed["policy_reasons"] = gate["reasons"] + ["Blocked mode selection was overridden by policy gate."]
             parsed["decision"] = "diagnosis"
-            parsed["intervention_plan"] = [
-                {"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}
-            ]
+            parsed["intervention_plan"] = [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}]
 
         return parsed
 
     except Exception as e:
         st.error(f"LLM error: {type(e).__name__}: {e}")
-        return {
-            "detected_signals": ["llm_call_error"],
-            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
-            "decision": "diagnosis",
-            "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-            "policy_reasons": gate["reasons"] + [f"LLM error: {type(e).__name__}"],
-            "ethics_flags": ["reliability: LLM request failure"]
-        }
+        return fallback_result(gate, f"LLM request failed ({type(e).__name__}); fallback activated.")
 
 # ----------------------------
 # UI
@@ -276,7 +281,7 @@ default_contra_labels = [label for (label, val) in CONTRA_OPTIONS if val in pres
 contra_labels = st.multiselect(
     "Contraindications",
     [label for (label, _) in CONTRA_OPTIONS],
-        default=default_contra_labels
+    default=default_contra_labels
 )
 contra = [val for (label, val) in CONTRA_OPTIONS if label in contra_labels]
 
@@ -310,7 +315,7 @@ with c2:
     st.info(", ".join(modes))
 
 if st.button("Ingest OUSIA & Diagnose"):
-    result = hf_llm(patient_state, gate, mode)
+    result = hf_llm(patient_state, gate, mode, model_id, provider)
 
     st.divider()
     st.subheader("3) Results")
@@ -329,7 +334,7 @@ if st.button("Ingest OUSIA & Diagnose"):
 
     if result.get("ethics_flags"):
         st.markdown("### Ethics Flags")
-        st.error("\n".join([f"- {x}" for x in result["ethics_flags"]]))
+        st.error("\n".join([f'- {x}' for x in result["ethics_flags"]]))
 
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
