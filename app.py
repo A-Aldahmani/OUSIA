@@ -165,35 +165,6 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
             temperature=0.2,
             top_p=0.9,
         )
-        text = resp.choices[0].message.content
-    except Exception as e:
-        last_error = e
-
-    # 2) Fallback to text generation if chat route not available
-    if text is None:
-        try:
-            prompt = f"{system_prompt}\n\n{user_prompt}"
-            text = client.text_generation(
-                prompt,
-                model=model_id,
-                max_new_tokens=450,
-                temperature=0.2,
-                top_p=0.9,
-            )
-        except Exception as e:
-            last_error = e
-
-    # If both failed, return a debug-friendly safe response
-    if text is None:
-        st.error(f"LLM error: {type(last_error).__name__}: {last_error}")
-        return {
-            "detected_signals": ["llm_call_error"],
-            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
-            "decision": "diagnosis",
-            "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-            "policy_reasons": gate["reasons"] + [f"LLM error: {type(last_error).__name__}"],
-            "ethics_flags": ["reliability: LLM request failure"]
-        }
 
     # Parse JSON safely
     try:
