@@ -124,24 +124,25 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     return {"allowed": allowed, "reasons": reasons}
 
 # ----------------------------
-# HuggingFace LLM (Chat Completion)
+# HuggingFace LLM (Conversational / chat_completion)
 # ----------------------------
 def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
     """
-    Calls a hosted Hugging Face model using chat_completion (more compatible than text_generation).
+    Uses chat_completion because mistralai/Mistral-7B-Instruct-v0.3 is supported as a conversational task.
     Uses Streamlit Secrets: HF_TOKEN
     """
     hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    # InferenceClient supports provider selection. :contentReference[oaicite:2]{index=2}
-    client = InferenceClient(api_key=hf_token, provider=provider)
+    # IMPORTANT: don't let "auto" choose an incompatible provider/task mapping
+    chosen_provider = "hf-inference" if provider == "auto" else provider
+    client = InferenceClient(api_key=hf_token, provider=chosen_provider)
 
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
 
-    prompt = (
-        f"{system_prompt}\n\n"
+    # Keep user prompt separate; don't duplicate system prompt inside it
+    user_prompt = (
         f"PATIENT_STATE:\n{json.dumps(patient, indent=2)}\n\n"
         f"POLICY_GATE_ALLOWED_MODES:\n{json.dumps(gate['allowed'], indent=2)}\n\n"
         f"POLICY_GATE_REASONS:\n{json.dumps(gate['reasons'], indent=2)}\n\n"
@@ -161,26 +162,31 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
     )
 
     try:
-        # Use chat completion (more likely supported for instruct models across providers)
         resp = client.chat_completion(
             model=model_id,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": user_prompt},
             ],
             max_tokens=450,
             temperature=0.2,
             top_p=0.9,
         )
+
         text = resp.choices[0].message.content
 
+        # Parse JSON safely (extract first {...} block)
         start = text.find("{")
         end = text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            raise ValueError("Model response did not contain a JSON object.")
+
         parsed = json.loads(text[start:end + 1])
 
         # Hard safety: never allow output to pick a blocked mode
         allowed = gate["allowed"]
-        if parsed.get("decision") and not allowed.get(parsed["decision"], False):
+        decision = parsed.get("decision")
+        if decision and not allowed.get(decision, False):
             parsed["ethics_flags"] = parsed.get("ethics_flags", [])
             parsed["ethics_flags"].append("policy_override: model chose a blocked mode; forced diagnosis-only.")
             parsed["policy_reasons"] = gate["reasons"] + ["Blocked mode selection was overridden by policy gate."]
@@ -192,7 +198,9 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
         return parsed
 
     except Exception as e:
-        # Fail safely
+        # Helpful during debugging; you can comment this out for final demo
+        st.error(f"LLM error: {type(e).__name__}: {e}")
+
         return {
             "detected_signals": ["llm_call_error"],
             "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
@@ -302,8 +310,6 @@ gate = policy_gate(consent, goal, contra)
 c1, c2 = st.columns([1, 1])
 with c1:
     st.markdown("### Policy Gate")
-
-    # Capitalize keys for display only
     display_gate = {k.capitalize(): v for k, v in gate["allowed"].items()}
     st.write(display_gate)
 
@@ -314,8 +320,6 @@ with c1:
 
 with c2:
     st.markdown("### Allowed Modes")
-
-    # Capitalize mode names for display
     modes = [k.capitalize() for k, v in gate["allowed"].items() if v]
     st.info(", ".join(modes))
 
