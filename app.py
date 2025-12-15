@@ -17,14 +17,12 @@ mode = st.radio(
     help="Trying Two Approaches for different Ethical-Policy Regimes and Thought-Process"
 )
 
-# Optional: let you swap models easily
-model_id = st.text_input(
-    "Hugging Face Model ID",
-    value="HuggingFaceH4/zephyr-7b-beta",
-)
+# Lock model + provider for reliability (avoid auto-routing to incompatible providers like featherless-ai)
+MODEL_ID = "HuggingFaceH4/zephyr-7b-beta"
+PROVIDER = "hf-inference"
 
-provider = "hf-inference"
-st.caption("Inference provider locked to hf-inference for model compatibility.")
+st.caption(f"Model locked for demo reliability: {MODEL_ID}")
+st.caption(f"Provider locked for compatibility: {PROVIDER}")
 
 CLINICAL_PROMPT = (
     "You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.\n"
@@ -119,15 +117,18 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     return {"allowed": allowed, "reasons": reasons}
 
 # ----------------------------
-# HuggingFace LLM (Conversational / chat_completion)
+# HuggingFace LLM (Conversational / chat_completion only)
 # ----------------------------
-def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
+def hf_llm(patient: dict, gate: dict, mode: str) -> dict:
+    """
+    Uses chat_completion only (conversational), locked to a compatible model/provider for demo reliability.
+    Uses Streamlit Secrets: HF_TOKEN
+    """
     hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    chosen_provider = "auto" if provider == "auto" else "hf-inference"
-    client = InferenceClient(api_key=hf_token, provider=chosen_provider)
+    client = InferenceClient(api_key=hf_token, provider=PROVIDER)
 
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
 
@@ -150,13 +151,9 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
         "- ethics_flags\n"
     )
 
-    text = None
-    last_error = None
-
-    # 1) Try chat completion first
     try:
         resp = client.chat_completion(
-            model=model_id,
+            model=MODEL_ID,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -165,16 +162,16 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
             temperature=0.2,
             top_p=0.9,
         )
+        text = resp.choices[0].message.content
 
-    # Parse JSON safely
-    try:
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end == -1 or end <= start:
             raise ValueError("Model response did not contain a JSON object.")
+
         parsed = json.loads(text[start:end + 1])
 
-        # Hard safety: never allow blocked decision
+        # Hard safety: never allow output to pick a blocked mode
         allowed = gate["allowed"]
         decision = parsed.get("decision")
         if decision and not allowed.get(decision, False):
@@ -189,14 +186,14 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
         return parsed
 
     except Exception as e:
-        st.error(f"LLM parse error: {type(e).__name__}: {e}")
+        st.error(f"LLM error: {type(e).__name__}: {e}")
         return {
-            "detected_signals": ["output_parse_error"],
-            "likely_conditions": [{"name": "unable to parse model output", "confidence": 0.0}],
+            "detected_signals": ["llm_call_error"],
+            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
             "decision": "diagnosis",
             "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-            "policy_reasons": gate["reasons"] + ["Model output was not valid JSON; forced safe fallback."],
-            "ethics_flags": ["reliability: model output parse failure"]
+            "policy_reasons": gate["reasons"] + [f"LLM error: {type(e).__name__}"],
+            "ethics_flags": ["reliability: LLM request failure"]
         }
 
 # ----------------------------
@@ -279,7 +276,7 @@ default_contra_labels = [label for (label, val) in CONTRA_OPTIONS if val in pres
 contra_labels = st.multiselect(
     "Contraindications",
     [label for (label, _) in CONTRA_OPTIONS],
-    default=default_contra_labels
+        default=default_contra_labels
 )
 contra = [val for (label, val) in CONTRA_OPTIONS if label in contra_labels]
 
@@ -313,7 +310,7 @@ with c2:
     st.info(", ".join(modes))
 
 if st.button("Ingest OUSIA & Diagnose"):
-    result = hf_llm(patient_state, gate, mode, model_id, provider)
+    result = hf_llm(patient_state, gate, mode)
 
     st.divider()
     st.subheader("3) Results")
