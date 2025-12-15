@@ -1,13 +1,50 @@
 # OUSIA GROUP 5 IP2 CODE FOR LLM LOGIC (Final Demo Prototype LLM)
 
+import os
+from huggingface_hub import InferenceClient
 import json
 import streamlit as st
 from dataclasses import dataclass, asdict
 
-st.set_page_config(page_title="Goo Diagnosis Simulator", layout="centered")
+st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-st.title("🫧 Goo Diagnosis + Adaptive Response Simulator (2040)")
-st.caption("Prototype demo: ingest → detect → decide → act, with consent + policy gating.")
+st.title("🫧 OUSIA LLM Adaptive Response Simulator (2040)")
+st.caption("Group 5 IP2 LLM Demo")
+st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
+
+mode = st.radio(
+    "Governing framework",
+    ["Clinical / Regulated", "Speculative / Enhancement-forward"],
+    help="Demonstrates how different ethical-policy regimes affect the same technology."
+)
+
+CLINICAL_PROMPT = """
+You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.
+You operate under strict healthcare, safety, and bioethics regulations.
+
+Principles:
+- Prioritize diagnosis and monitoring over intervention.
+- Default to the least invasive option.
+- Treat augmentation and enhancement as exceptional.
+- Emphasize uncertainty, consent, and patient safety.
+- If in doubt, choose diagnosis-only.
+
+You MUST obey all policy gate restrictions exactly.
+"""
+
+SCIFI_PROMPT = """
+You are an advanced adaptive intelligence embedded in a future biomaterial in the year 2040.
+Human biology is highly programmable, and enhancement is socially normalized.
+
+Principles:
+- Actively optimize biological performance when permitted.
+- Treat augmentation and enhancement as valid outcomes, not failures.
+- Propose novel but plausible future biological interventions.
+- Still acknowledge ethics, equity, and consent, but do not default to refusal.
+- Innovation is balanced with responsibility, not halted by uncertainty.
+
+You MUST obey all policy gate restrictions exactly.
+"""
 
 # ----------------------------
 # Demo scenarios
@@ -81,72 +118,86 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     return {"allowed": allowed, "reasons": reasons}
 
 # ----------------------------
-# Mock "LLM" (works without API keys)
+# HuggingFace "LLM" (Using Access Token)
 # ----------------------------
-def mock_llm(patient: dict, gate: dict) -> dict:
+def hf_llm(patient: dict, gate: dict, mode: str, model_id: str):
+    Calls a hosted Hugging Face model and forces JSON output for your goo simulation.
+    Uses Streamlit Secrets: HF_TOKEN
     """
-    A deterministic placeholder that mimics what an LLM would output.
-    You can later swap this for a real model call.
-    """
-    symptoms = set(patient["symptoms"])
-    detected = []
-    likely = []
-    plan = []
-    ethics_flags = []
+    hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
+    if not hf_token:
+        raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    # Simple signal inference
-    if patient["temp"] >= 38.0:
-        detected.append("elevated temperature (possible infection/inflammation)")
-    if patient["spo2"] <= 93:
-        detected.append("low oxygen saturation")
-    if "swelling" in symptoms or "redness" in symptoms:
-        detected.append("localized inflammation markers")
+    client = InferenceClient(api_key=hf_token)
+    system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
+    # You want reliable structure, so we force a JSON-only response.
+    # (We still validate and fall back gracefully if it fails.)
+    schema_hint = """
+Return ONLY valid JSON with these keys:
+detected_signals (list of strings)
+likely_conditions (list of {name: string, confidence: number 0-1})
+decision (one of: diagnosis, repair, augment, enhance)
+intervention_plan (list of {action: string, target: string, duration: string})
+policy_reasons (list of strings)
+ethics_flags (list of strings)
+"""
 
-    # Simple condition guesses
-    if "low oxygen saturation" in " ".join(detected):
-        likely.append({"name": "respiratory compromise (non-specific)", "confidence": 0.62})
-    if "elevated temperature" in " ".join(detected):
-        likely.append({"name": "acute inflammatory response", "confidence": 0.66})
-    if "localized inflammation markers" in detected:
-        likely.append({"name": "minor tissue injury", "confidence": 0.74})
+prompt = f"""
+{system_prompt}
 
-    # Decide mode based on gate
-    if gate["allowed"]["repair"] and (patient["temp"] >= 38.0 or "swelling" in symptoms or patient["spo2"] <= 93):
-        decision = "repair"
-    elif gate["allowed"]["augment"] and patient["goal"] == "performance":
-        decision = "augment"
-    elif gate["allowed"]["enhance"] and patient["goal"] in ["cognitive", "performance"]:
-        decision = "enhance"
-    else:
-        decision = "diagnosis"
+PATIENT_STATE:
+{json.dumps(patient, indent=2)}
 
-    # Build plan
-    if decision == "repair":
-        plan = [
-            {"action": "targeted anti-inflammatory release", "target": "affected tissue", "duration": "2h"},
-            {"action": "micro-scaffold support", "target": "injury site", "duration": "6h"}
-        ]
-    elif decision == "augment":
-        plan = [{"action": "temporary oxygen delivery optimization", "target": "muscle tissue", "duration": "45m"}]
-        ethics_flags.append("augmentation: monitor coercion/pressure risks in competitive settings")
-    elif decision == "enhance":
-        plan = [{"action": "temporary neural metabolic optimization", "target": "central nervous system", "duration": "30m"}]
-        ethics_flags.append("enhancement: equity/access concern + potential social coercion")
-    else:
-        plan = [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}]
+POLICY_GATE_ALLOWED_MODES:
+{json.dumps(gate["allowed"], indent=2)}
 
-    if patient["consent"] < 3 and patient["goal"] in ["performance", "cognitive"]:
-        ethics_flags.append("insufficient consent for augmentation/enhancement request")
+POLICY_GATE_REASONS:
+{json.dumps(gate["reasons"], indent=2)}
 
-    return {
-        "detected_signals": detected or ["baseline within expected range"],
-        "likely_conditions": likely or [{"name": "no abnormality detected", "confidence": 0.55}],
-        "decision": decision,
-        "intervention_plan": plan,
-        "policy_reasons": gate["reasons"],
-        "ethics_flags": ethics_flags
-    }
+TASK:
+1) Infer detected_signals from patient_state.
+2) Propose likely_conditions with uncertainty.
+3) Choose decision consistent with allowed modes (never choose a blocked mode).
+4) Propose intervention_plan appropriate to the decision.
+5) Add ethics_flags (consent, coercion, equity, safety).
 
+Return ONLY valid JSON with keys:
+detected_signals
+likely_conditions
+decision
+intervention_plan
+policy_reasons
+ethics_flags
+"""
+"""
+
+    # Text generation call
+    text = client.text_generation(
+        prompt,
+        model=model_id,
+        max_new_tokens=400,
+        temperature=0.2,
+        top_p=0.9,
+    )
+
+    # Parse JSON safely
+    try:
+        # Some models may wrap JSON in extra text; attempt to extract the JSON block.
+        start = text.find("{")
+        end = text.rfind("}")
+        parsed = json.loads(text[start:end+1])
+    except Exception:
+        # Fail safely: return diagnosis-only output
+        parsed = {
+            "detected_signals": ["output_parse_error"],
+            "likely_conditions": [{"name": "unable to parse model output", "confidence": 0.0}],
+            "decision": "diagnosis",
+            "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
+            "policy_reasons": gate["reasons"] + ["Model output was not valid JSON; forced safe fallback."],
+            "ethics_flags": ["reliability: model output parse failure"]
+        }
+
+    return parsed
 # ----------------------------
 # UI
 # ----------------------------
@@ -208,8 +259,8 @@ with c2:
     modes = [k for k, v in gate["allowed"].items() if v]
     st.info(", ".join(modes))
 
-if st.button("🧪 Ingest goo & run diagnosis"):
-    result = mock_llm(patient_state, gate)
+if st.button("Ingest OUSIA & Diagnose"):
+    result = hf_llm(patient_state, gate, mode, model_id)
 
     st.divider()
     st.subheader("3) Results")
