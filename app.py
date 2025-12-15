@@ -20,7 +20,7 @@ mode = st.radio(
 # Optional: let you swap models easily
 model_id = st.text_input(
     "Hugging Face Model ID",
-    value="value="HuggingFaceH4/zephyr-7b-beta",
+    value="HuggingFaceH4/zephyr-7b-beta",
 )
 
 # Provider: avoids auto-selecting a provider that doesn't support the task for this model
