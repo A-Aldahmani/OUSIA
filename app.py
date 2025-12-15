@@ -1,9 +1,7 @@
-# OUSIA GROUP 5 IP2 CODE FOR LLM LOGIC (Final Demo Prototype LLM)
+# OUSIA GROUP 5 IP2 CODE FOR LLM LOGIC (Final Demo Prototype LLM) 
 
-import os
 import json
 import streamlit as st
-from huggingface_hub import InferenceClient
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
@@ -15,21 +13,6 @@ mode = st.radio(
     "Governing Framework",
     ["Clinical / Regulated", "Speculative / Enhancement-forward"],
     help="Trying Two Approaches for different Ethical-Policy Regimes and Thought-Process"
-)
-
-# Model input (keep editable)
-model_id = st.text_input(
-    "Hugging Face Model ID",
-    value="HuggingFaceH4/zephyr-7b-beta",
-    help="Tip: choose a model that shows a Chat/Conversational provider on its model page."
-)
-
-# IMPORTANT: default to auto so HF routes to a provider that actually hosts the model
-provider = st.selectbox(
-    "Inference Provider",
-    ["auto", "hf-inference"],
-    index=0,
-    help="Use AUTO for most chat LLMs. hf-inference often 404s because many models are not deployed there."
 )
 
 CLINICAL_PROMPT = (
@@ -101,6 +84,10 @@ DEMO_CASES = {
 # Policy gate (rules)
 # ----------------------------
 def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> dict:
+    """
+    Hard rules that constrain what the goo is allowed to do.
+    consent: 1=diagnosis only, 2=repair, 3=augment, 4=enhance
+    """
     allowed = {"diagnosis": True, "repair": False, "augment": False, "enhance": False}
     reasons = []
 
@@ -111,95 +98,173 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     if consent_level >= 4:
         allowed["enhance"] = True
 
+    # Safety constraints (example)
     if "immunocompromised" in contraindications:
         allowed = {"diagnosis": True, "repair": False, "augment": False, "enhance": False}
         reasons.append("User is immunocompromised → intervention locked to diagnosis-only (clinician override required).")
 
+    # Goal-based ethics constraint example
     if goal in ["cognitive", "performance"] and not allowed["enhance"]:
         reasons.append("Requested enhancement-like goal but consent level does not permit enhancement.")
 
     return {"allowed": allowed, "reasons": reasons}
 
+
 # ----------------------------
-# Demo-safe fallback (so your app never dies)
+# MOCK LLM (deterministic simulation)
 # ----------------------------
-def fallback_result(gate: dict, why: str) -> dict:
+def _detect_signals(patient: dict) -> list[str]:
+    s = []
+    symptoms = set(patient["symptoms"])
+    hr = patient["hr"]
+    temp = patient["temp"]
+    spo2 = patient["spo2"]
+    bp_sys = patient["bp_sys"]
+
+    # Symptoms
+    if "fever" in symptoms or temp >= 38.0:
+        s.append("elevated_temperature")
+    if "shortness of breath" in symptoms or spo2 <= 93:
+        s.append("low_oxygenation")
+    if "fatigue" in symptoms:
+        s.append("fatigue_reported")
+    if {"redness", "swelling", "localized pain"} & symptoms:
+        s.append("localized_inflammation")
+    if "dizziness" in symptoms:
+        s.append("dizziness_reported")
+    if "no symptoms" in symptoms and len(symptoms) == 1:
+        s.append("asymptomatic_request")
+
+    # Vitals
+    if hr >= 100:
+        s.append("tachycardia")
+    if bp_sys <= 95:
+        s.append("low_systolic_bp")
+
+    # Contra
+    if "immunocompromised" in patient["contra"]:
+        s.append("immunocompromised_flag")
+
+    return s or ["no_significant_signals"]
+
+
+def _likely_conditions(patient: dict, signals: list[str]) -> list[dict]:
+    conds = []
+
+    if "localized_inflammation" in signals:
+        conds.append({"name": "minor tissue injury / localized inflammation", "confidence": 0.72})
+    if "low_oxygenation" in signals:
+        conds.append({"name": "possible respiratory compromise (low oxygen)", "confidence": 0.68})
+    if "elevated_temperature" in signals:
+        conds.append({"name": "possible infection / inflammatory response", "confidence": 0.64})
+    if "fatigue_reported" in signals and "low_oxygenation" not in signals:
+        conds.append({"name": "non-specific fatigue (sleep/stress/metabolic)", "confidence": 0.45})
+    if "asymptomatic_request" in signals and patient["goal"] in ["performance", "cognitive"]:
+        conds.append({"name": "enhancement-seeking user (no pathology detected)", "confidence": 0.55})
+
+    if not conds:
+        conds = [{"name": "no clear condition detected", "confidence": 0.35}]
+
+    # Sort by confidence desc
+    conds.sort(key=lambda x: x["confidence"], reverse=True)
+    return conds[:3]
+
+
+def _choose_decision(patient: dict, gate: dict, signals: list[str], mode: str) -> tuple[str, list[str], list[str]]:
+    """
+    Returns (decision, policy_reasons, ethics_flags)
+    """
+    allowed = gate["allowed"]
+    policy_reasons = list(gate["reasons"])
+    ethics_flags = []
+
+    # Baseline ethics flags
+    ethics_flags.append(f"consent_level:{patient['consent']}")
+    if patient["goal"] in ["performance", "cognitive"]:
+        ethics_flags.append("equity: enhancement access may be unequal")
+
+    # Safety first
+    if "immunocompromised_flag" in signals:
+        ethics_flags.append("safety: immunocompromised → intervention locked")
+        return "diagnosis", policy_reasons, ethics_flags
+
+    # Clinical mode: conservative defaults
+    if mode.startswith("Clinical"):
+        # Prefer diagnosis if uncertain or no strong need
+        if ("no_significant_signals" in signals) or ("asymptomatic_request" in signals):
+            return "diagnosis", policy_reasons + ["Clinical regime defaults to diagnosis-only when no pathology is detected."], ethics_flags
+
+        # If pathology signals and repair is allowed -> repair; else diagnosis
+        if allowed.get("repair") and any(x in signals for x in ["localized_inflammation", "low_oxygenation", "elevated_temperature"]):
+            return "repair", policy_reasons, ethics_flags
+
+        return "diagnosis", policy_reasons + ["Repair not permitted by policy gate or insufficient evidence."], ethics_flags
+
+    # Speculative mode: more proactive within policy
+    else:
+        # If user wants performance/cognitive and enhance allowed -> enhance
+        if patient["goal"] in ["performance", "cognitive"]:
+            if allowed.get("enhance"):
+                ethics_flags.append("ethics: enhancement permitted under regime")
+                return "enhance", policy_reasons, ethics_flags
+            if allowed.get("augment"):
+                ethics_flags.append("ethics: enhancement blocked; using augment if allowed")
+                return "augment", policy_reasons + ["Enhance blocked by policy gate; selected augment instead."], ethics_flags
+            # If neither is allowed, diagnosis
+            return "diagnosis", policy_reasons + ["Goal implies enhancement/augmentation but consent does not permit it."], ethics_flags
+
+        # Otherwise: repair when there are signals and repair allowed
+        if allowed.get("repair") and any(x in signals for x in ["localized_inflammation", "low_oxygenation", "elevated_temperature"]):
+            return "repair", policy_reasons, ethics_flags
+
+        return "diagnosis", policy_reasons, ethics_flags
+
+
+def _intervention_plan(patient: dict, decision: str, signals: list[str], mode: str) -> list[dict]:
+    # Keep actions “simulation-friendly” and not real medical instructions
+    if decision == "diagnosis":
+        return [
+            {"action": "monitor biomarkers + vitals", "target": "system-wide", "duration": "10m"},
+            {"action": "generate risk summary", "target": "user dashboard", "duration": "instant"},
+        ]
+
+    if decision == "repair":
+        plan = [{"action": "localized biomaterial scaffold support", "target": "affected tissue", "duration": "30m"}]
+        if "low_oxygenation" in signals:
+            plan.append({"action": "assist oxygen transport (simulation)", "target": "blood oxygenation", "duration": "15m"})
+        if "elevated_temperature" in signals:
+            plan.append({"action": "anti-inflammatory modulation (simulation)", "target": "immune response", "duration": "20m"})
+        return plan
+
+    if decision == "augment":
+        if mode.startswith("Clinical"):
+            return [{"action": "restricted augmentation (simulation)", "target": "recovery capacity", "duration": "20m"}]
+        return [{"action": "performance augmentation (simulation)", "target": "cardio efficiency", "duration": "45m"}]
+
+    if decision == "enhance":
+        # Speculative: still “plausible future” but clearly simulation
+        if patient["goal"] == "cognitive":
+            return [{"action": "cognitive enhancement protocol (simulation)", "target": "attention / memory", "duration": "60m"}]
+        return [{"action": "performance enhancement protocol (simulation)", "target": "endurance / reaction time", "duration": "60m"}]
+
+    return [{"action": "no-op", "target": "system-wide", "duration": "0m"}]
+
+
+def mock_llm(patient: dict, gate: dict, mode: str) -> dict:
+    signals = _detect_signals(patient)
+    conds = _likely_conditions(patient, signals)
+    decision, policy_reasons, ethics_flags = _choose_decision(patient, gate, signals, mode)
+    plan = _intervention_plan(patient, decision, signals, mode)
+
     return {
-        "detected_signals": ["fallback_mode"],
-        "likely_conditions": [{"name": "LLM unavailable — using simulation fallback", "confidence": 0.0}],
-        "decision": "diagnosis",
-        "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-        "policy_reasons": gate["reasons"] + [why],
-        "ethics_flags": ["reliability: fallback used"]
+        "detected_signals": signals,
+        "likely_conditions": conds,
+        "decision": decision,
+        "intervention_plan": plan,
+        "policy_reasons": policy_reasons,
+        "ethics_flags": ethics_flags,
     }
 
-# ----------------------------
-# HuggingFace LLM (CHAT ONLY — no text_generation fallback)
-# ----------------------------
-def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
-    hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
-    if not hf_token:
-        raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
-
-    client = InferenceClient(api_key=hf_token, provider=provider)
-
-    system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
-
-    user_prompt = (
-        f"PATIENT_STATE:\n{json.dumps(patient, indent=2)}\n\n"
-        f"POLICY_GATE_ALLOWED_MODES:\n{json.dumps(gate['allowed'], indent=2)}\n\n"
-        f"POLICY_GATE_REASONS:\n{json.dumps(gate['reasons'], indent=2)}\n\n"
-        "TASK:\n"
-        "1) Infer detected_signals from patient_state.\n"
-        "2) Propose likely_conditions with uncertainty.\n"
-        "3) Choose decision consistent with allowed modes (never choose a blocked mode).\n"
-        "4) Propose intervention_plan appropriate to the decision.\n"
-        "5) Add ethics_flags (consent, coercion, equity, safety).\n\n"
-        "Return ONLY valid JSON with keys:\n"
-        "- detected_signals\n"
-        "- likely_conditions\n"
-        "- decision\n"
-        "- intervention_plan\n"
-        "- policy_reasons\n"
-        "- ethics_flags\n"
-    )
-
-    try:
-        resp = client.chat_completion(
-            model=model_id,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=450,
-            temperature=0.2,
-            top_p=0.9,
-        )
-
-        text = resp.choices[0].message.content
-
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            return fallback_result(gate, "Model did not return JSON; fallback activated.")
-
-        parsed = json.loads(text[start:end + 1])
-
-        # Hard safety: never allow output to pick a blocked mode
-        allowed = gate["allowed"]
-        decision = parsed.get("decision")
-        if decision and not allowed.get(decision, False):
-            parsed["ethics_flags"] = parsed.get("ethics_flags", [])
-            parsed["ethics_flags"].append("policy_override: model chose a blocked mode; forced diagnosis-only.")
-            parsed["policy_reasons"] = gate["reasons"] + ["Blocked mode selection was overridden by policy gate."]
-            parsed["decision"] = "diagnosis"
-            parsed["intervention_plan"] = [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}]
-
-        return parsed
-
-    except Exception as e:
-        st.error(f"LLM error: {type(e).__name__}: {e}")
-        return fallback_result(gate, f"LLM request failed ({type(e).__name__}); fallback activated.")
 
 # ----------------------------
 # UI
@@ -315,7 +380,8 @@ with c2:
     st.info(", ".join(modes))
 
 if st.button("Ingest OUSIA & Diagnose"):
-    result = hf_llm(patient_state, gate, mode, model_id, provider)
+    # MOCK LLM CALL (replaces HF LLM)
+    result = mock_llm(patient_state, gate, mode)
 
     st.divider()
     st.subheader("3) Results")
@@ -334,7 +400,7 @@ if st.button("Ingest OUSIA & Diagnose"):
 
     if result.get("ethics_flags"):
         st.markdown("### Ethics Flags")
-        st.error("\n".join([f'- {x}' for x in result["ethics_flags"]]))
+        st.error("\n".join([f"- {x}" for x in result["ethics_flags"]]))
 
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
