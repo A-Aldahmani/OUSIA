@@ -131,7 +131,7 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    chosen_provider = "hf-inference" if provider == "auto" else provider
+    chosen_provider = "auto" if provider == "auto" else "hf-inference"
     client = InferenceClient(api_key=hf_token, provider=chosen_provider)
 
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
