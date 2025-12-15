@@ -169,8 +169,6 @@ intervention_plan
 policy_reasons
 ethics_flags
 """
-"""
-
     # Text generation call
     text = client.text_generation(
         prompt,
