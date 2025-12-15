@@ -20,7 +20,7 @@ mode = st.radio(
 # Optional: let you swap models easily
 model_id = st.text_input(
     "Hugging Face Model ID",
-    value="mistralai/Mistral-7B-Instruct-v0.3",
+    value="microsoft/Phi-3-mini-4k-instruct",
 )
 
 # Provider: avoids auto-selecting a provider that doesn't support the task for this model
