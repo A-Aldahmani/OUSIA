@@ -193,39 +193,88 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
 # UI
 # ----------------------------
 st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
-case = st.selectbox("Demo scenarios", ["Search"] + list(DEMO_CASES.keys()))
+
+case = st.selectbox("Demo scenarios", ["(Custom)"] + list(DEMO_CASES.keys()))
 if case != "(Custom)":
     preset = DEMO_CASES[case]
 else:
-    preset = {"Symptoms": [], "hr": 75, "temp": 36.8, "bp_sys": 120, "bp_dia": 80, "spo2": 98, "Goal": "Restore", "Consent": 2, "Contra": []}
+    preset = {
+        "symptoms": [],
+        "hr": 75, "temp": 36.8, "bp_sys": 120, "bp_dia": 80, "spo2": 98,
+        "goal": "restore",
+        "consent": 2,
+        "contra": []
+    }
 
 col1, col2 = st.columns(2)
 
+# --- UI display options (Capitalized), but we map to lowercase internal values
+SYMPTOM_OPTIONS = [
+    ("No Symptoms", "no symptoms"),
+    ("Fatigue", "fatigue"),
+    ("Fever", "fever"),
+    ("Localized Pain", "localized pain"),
+    ("Redness", "redness"),
+    ("Swelling", "swelling"),
+    ("Shortness of Breath", "shortness of breath"),
+    ("Dizziness", "dizziness"),
+]
+
+GOAL_OPTIONS = [
+    ("Restore", "restore"),
+    ("Performance", "performance"),
+    ("Cognitive", "cognitive"),
+]
+
+CONTRA_OPTIONS = [
+    ("Immunocompromised", "immunocompromised"),
+    ("Pregnant", "pregnant"),
+    ("Blood Clot Risk", "blood clot risk"),
+    ("Autoimmune Flare Risk", "autoimmune flare risk"),
+]
+
 with col1:
-    symptoms = st.multiselect(
+    # Convert preset lower-case symptoms -> display labels
+    preset_symptom_internal = set(preset["symptoms"])
+    default_symptom_labels = [label for (label, val) in SYMPTOM_OPTIONS if val in preset_symptom_internal]
+
+    symptom_labels = st.multiselect(
         "Symptoms",
-        ["No Symptoms", "Fatigue", "Fever", "Localized Pain", "Redness", "Swelling", "Shortness of Breath", "Dizziness"],
-        default=preset["Symptoms"]
+        [label for (label, _) in SYMPTOM_OPTIONS],
+        default=default_symptom_labels
     )
-    goal = st.selectbox(
+    symptoms = [val for (label, val) in SYMPTOM_OPTIONS if label in symptom_labels]
+
+    goal_label = st.selectbox(
         "User goal",
-        ["Restore", "Performance", "Cognitive"],
-        index=["restore", "performance", "cognitive"].index(preset["goal"])
+        [label for (label, _) in GOAL_OPTIONS],
+        index=[val for (_, val) in GOAL_OPTIONS].index(preset["goal"])
     )
-    consent = st.slider("Consent level", 1, 4, preset["consent"], help="1=Diagnosis only, 2=Repair, 3=Augment, 4=Enhance")
+    goal = [val for (label, val) in GOAL_OPTIONS if label == goal_label][0]
+
+    consent = st.slider(
+        "Consent level",
+        1, 4, int(preset["consent"]),
+        help="1=Diagnosis only, 2=Repair, 3=Augment, 4=Enhance"
+    )
 
 with col2:
-    hr = st.number_input("Heart rate (bpm)", 30, 200, preset["hr"])
+    hr = st.number_input("Heart rate (bpm)", 30, 200, int(preset["hr"]))
     temp = st.number_input("Temperature (°C)", 34.0, 42.0, float(preset["temp"]), step=0.1)
-    bp_sys = st.number_input("BP systolic", 70, 220, preset["bp_sys"])
-    bp_dia = st.number_input("BP diastolic", 40, 140, preset["bp_dia"])
-    spo2 = st.number_input("SpO₂ (%)", 50, 100, preset["spo2"])
+    bp_sys = st.number_input("BP systolic", 70, 220, int(preset["bp_sys"]))
+    bp_dia = st.number_input("BP diastolic", 40, 140, int(preset["bp_dia"]))
+    spo2 = st.number_input("SpO₂ (%)", 50, 100, int(preset["spo2"]))
 
-contra = st.multiselect(
+# Contraindications (labels in UI, lowercase internally)
+preset_contra_internal = set(preset["contra"])
+default_contra_labels = [label for (label, val) in CONTRA_OPTIONS if val in preset_contra_internal]
+
+contra_labels = st.multiselect(
     "Contraindications",
-    ["Immunocompromised", "Pregnant", "Blood Clot Risk", "Autoimmune Flare Risk"],
-    default=preset["contra"]
+    [label for (label, _) in CONTRA_OPTIONS],
+    default=default_contra_labels
 )
+contra = [val for (label, val) in CONTRA_OPTIONS if label in contra_labels]
 
 st.divider()
 st.subheader("2) Run The Simulation (OUSIA Thought Process)")
@@ -238,7 +287,7 @@ patient_state = {
     "contra": contra
 }
 
-gate = policy_gate(Consent, Goal, Contra)
+gate = policy_gate(consent, goal, contra)
 
 c1, c2 = st.columns([1, 1])
 with c1:
