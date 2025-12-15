@@ -14,7 +14,11 @@ mode = st.radio(
     ["Clinical / Regulated", "Speculative / Enhancement-forward"],
     help="Trying Two Approaches for different Ethical-Policy Regimes and Thought-Process"
 )
-
+show_reasoning = st.checkbox(
+    "Show internal reasoning (mock)",
+    value=False,
+    help="Displays the rule-based 'thought process' used by the mock LLM."
+)
 CLINICAL_PROMPT = (
     "You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.\n"
     "You operate under strict healthcare, safety, and bioethics regulations.\n\n"
@@ -381,7 +385,7 @@ with c2:
 
 if st.button("Ingest OUSIA & Diagnose"):
     # MOCK LLM CALL (replaces HF LLM)
-    result = mock_llm(patient_state, gate, mode)
+    result, reasoning = mock_llm(patient_state, gate, mode)
 
     st.divider()
     st.subheader("3) Results")
