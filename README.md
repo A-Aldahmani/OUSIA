@@ -1,2 +1,2 @@
 # OUSIA
-OUSIA (LLM Reasoning Logic ----> Diagnose ------> Take Action)
+OUSIA LLM Reasoning Logic Simulation
