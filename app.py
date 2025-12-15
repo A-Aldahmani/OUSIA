@@ -24,6 +24,14 @@ model_id = st.text_input(
     help="Example: mistralai/Mistral-7B-Instruct-v0.3"
 )
 
+# Provider: avoids auto-selecting a provider that doesn't support the task for this model
+provider = st.selectbox(
+    "Inference Provider",
+    ["hf-inference", "auto"],
+    index=0,
+    help="If 'auto' fails, keep 'hf-inference'."
+)
+
 CLINICAL_PROMPT = (
     "You are a highly regulated medical decision module embedded in an ingestible diagnostic biomaterial.\n"
     "You operate under strict healthcare, safety, and bioethics regulations.\n\n"
@@ -107,30 +115,30 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     if consent_level >= 4:
         allowed["enhance"] = True
 
-    # Safety constraints (example)
     if "immunocompromised" in contraindications:
         allowed = {"diagnosis": True, "repair": False, "augment": False, "enhance": False}
         reasons.append("User is immunocompromised → intervention locked to diagnosis-only (clinician override required).")
 
-    # Goal-based ethics constraint example
     if goal in ["cognitive", "performance"] and not allowed["enhance"]:
         reasons.append("Requested enhancement-like goal but consent level does not permit enhancement.")
 
     return {"allowed": allowed, "reasons": reasons}
 
 # ----------------------------
-# HuggingFace LLM (Using Access Token)
+# HuggingFace LLM (Chat Completion)
 # ----------------------------
-def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
+def hf_llm(patient: dict, gate: dict, mode: str, model_id: str, provider: str) -> dict:
     """
-    Calls a hosted Hugging Face model and forces JSON output for your goo simulation.
+    Calls a hosted Hugging Face model using chat_completion (more compatible than text_generation).
     Uses Streamlit Secrets: HF_TOKEN
     """
     hf_token = st.secrets.get("HF_TOKEN", os.getenv("HF_TOKEN"))
     if not hf_token:
         raise RuntimeError("Missing HF_TOKEN. Add it in Streamlit Cloud Secrets.")
 
-    client = InferenceClient(api_key=hf_token)
+    # InferenceClient supports provider selection. :contentReference[oaicite:2]{index=2}
+    client = InferenceClient(api_key=hf_token, provider=provider)
+
     system_prompt = CLINICAL_PROMPT if mode.startswith("Clinical") else SCIFI_PROMPT
 
     prompt = (
@@ -153,15 +161,20 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
         "- ethics_flags\n"
     )
 
-    text = client.text_generation(
-        prompt,
-        model=model_id,
-        max_new_tokens=450,
-        temperature=0.2,
-        top_p=0.9,
-    )
-
     try:
+        # Use chat completion (more likely supported for instruct models across providers)
+        resp = client.chat_completion(
+            model=model_id,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=450,
+            temperature=0.2,
+            top_p=0.9,
+        )
+        text = resp.choices[0].message.content
+
         start = text.find("{")
         end = text.rfind("}")
         parsed = json.loads(text[start:end + 1])
@@ -177,17 +190,18 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
                 {"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}
             ]
 
-    except Exception:
-        parsed = {
-            "detected_signals": ["output_parse_error"],
-            "likely_conditions": [{"name": "unable to parse model output", "confidence": 0.0}],
+        return parsed
+
+    except Exception as e:
+        # Fail safely
+        return {
+            "detected_signals": ["llm_call_error"],
+            "likely_conditions": [{"name": "LLM request failed", "confidence": 0.0}],
             "decision": "diagnosis",
             "intervention_plan": [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}],
-            "policy_reasons": gate["reasons"] + ["Model output was not valid JSON; forced safe fallback."],
-            "ethics_flags": ["reliability: model output parse failure"]
+            "policy_reasons": gate["reasons"] + [f"LLM error: {type(e).__name__}"],
+            "ethics_flags": ["reliability: LLM request failure"]
         }
-
-    return parsed
 
 # ----------------------------
 # UI
@@ -301,7 +315,7 @@ with c2:
     st.info(", ".join(modes))
 
 if st.button("Ingest OUSIA & Diagnose"):
-    result = hf_llm(patient_state, gate, mode, model_id)
+    result = hf_llm(patient_state, gate, mode, model_id, provider)
 
     st.divider()
     st.subheader("3) Results")
