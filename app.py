@@ -12,14 +12,14 @@ st.caption("Group 5 IP2 LLM Demo")
 st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
 
 mode = st.radio(
-    "Governing framework",
+    "Governing Framework",
     ["Clinical / Regulated", "Speculative / Enhancement-forward"],
     help="Demonstrates how different ethical-policy regimes affect the same technology."
 )
 
 # Optional: let you swap models easily
 model_id = st.text_input(
-    "Hugging Face model id",
+    "Hugging Face Model ID",
     value="mistralai/Mistral-7B-Instruct-v0.3",
     help="Example: mistralai/Mistral-7B-Instruct-v0.3"
 )
@@ -153,7 +153,6 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
         "- ethics_flags\n"
     )
 
-    # Text generation call
     text = client.text_generation(
         prompt,
         model=model_id,
@@ -162,7 +161,6 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
         top_p=0.9,
     )
 
-    # Parse JSON safely
     try:
         start = text.find("{")
         end = text.rfind("}")
@@ -175,7 +173,9 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
             parsed["ethics_flags"].append("policy_override: model chose a blocked mode; forced diagnosis-only.")
             parsed["policy_reasons"] = gate["reasons"] + ["Blocked mode selection was overridden by policy gate."]
             parsed["decision"] = "diagnosis"
-            parsed["intervention_plan"] = [{"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}]
+            parsed["intervention_plan"] = [
+                {"action": "non-interventional monitoring", "target": "system-wide", "duration": "10m"}
+            ]
 
     except Exception:
         parsed = {
@@ -194,8 +194,8 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
 # ----------------------------
 st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
 
-case = st.selectbox("Demo Scenarios", ["(Search)"] + list(DEMO_CASES.keys()))
-if case != "(Search)":
+case = st.selectbox("Demo Scenarios", ["(Custom)"] + list(DEMO_CASES.keys()))
+if case != "(Custom)":
     preset = DEMO_CASES[case]
 else:
     preset = {
@@ -208,7 +208,6 @@ else:
 
 col1, col2 = st.columns(2)
 
-# --- UI display options (Capitalized), but we map to lowercase internal values
 SYMPTOM_OPTIONS = [
     ("No Symptoms", "no symptoms"),
     ("Fatigue", "fatigue"),
@@ -234,7 +233,6 @@ CONTRA_OPTIONS = [
 ]
 
 with col1:
-    # Convert preset lower-case symptoms -> display labels
     preset_symptom_internal = set(preset["symptoms"])
     default_symptom_labels = [label for (label, val) in SYMPTOM_OPTIONS if val in preset_symptom_internal]
 
@@ -246,26 +244,25 @@ with col1:
     symptoms = [val for (label, val) in SYMPTOM_OPTIONS if label in symptom_labels]
 
     goal_label = st.selectbox(
-        "User goal",
+        "User Goal",
         [label for (label, _) in GOAL_OPTIONS],
         index=[val for (_, val) in GOAL_OPTIONS].index(preset["goal"])
     )
     goal = [val for (label, val) in GOAL_OPTIONS if label == goal_label][0]
 
     consent = st.slider(
-        "Consent level",
+        "Consent Level",
         1, 4, int(preset["consent"]),
         help="[1 = Diagnosis, 2 = Repair, 3 = Augment, 4 = Enhance]"
     )
 
 with col2:
-    hr = st.number_input("Heart rate (bpm)", 30, 200, int(preset["hr"]))
+    hr = st.number_input("Heart Rate (bpm)", 30, 200, int(preset["hr"]))
     temp = st.number_input("Temperature (°C)", 34.0, 42.0, float(preset["temp"]), step=0.1)
-    bp_sys = st.number_input("BP systolic", 70, 220, int(preset["bp_sys"]))
-    bp_dia = st.number_input("BP diastolic", 40, 140, int(preset["bp_dia"]))
+    bp_sys = st.number_input("BP Systolic", 70, 220, int(preset["bp_sys"]))
+    bp_dia = st.number_input("BP Diastolic", 40, 140, int(preset["bp_dia"]))
     spo2 = st.number_input("SpO₂ (%)", 50, 100, int(preset["spo2"]))
 
-# Contraindications (labels in UI, lowercase internally)
 preset_contra_internal = set(preset["contra"])
 default_contra_labels = [label for (label, val) in CONTRA_OPTIONS if val in preset_contra_internal]
 
