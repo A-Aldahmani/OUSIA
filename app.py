@@ -405,4 +405,4 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
 
-st.markdown('<p style="font-size: 30px;">Now you know how OUSIA thinks!.</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size: 25px;">Now you know how OUSIA thinks!</p>', unsafe_allow_html=True)
