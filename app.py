@@ -194,7 +194,7 @@ def hf_llm(patient: dict, gate: dict, mode: str, model_id: str) -> dict:
 # ----------------------------
 st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
 
-case = st.selectbox("Demo scenarios", ["(Custom)"] + list(DEMO_CASES.keys()))
+case = st.selectbox("Demo Scenarios", ["Search"] + list(DEMO_CASES.keys()))
 if case != "(Custom)":
     preset = DEMO_CASES[case]
 else:
@@ -255,7 +255,7 @@ with col1:
     consent = st.slider(
         "Consent level",
         1, 4, int(preset["consent"]),
-        help="1=Diagnosis only, 2=Repair, 3=Augment, 4=Enhance"
+        help="[1 = Diagnosis, 2 = Repair, 3 = Augment, 4 = Enhance]"
     )
 
 with col2:
