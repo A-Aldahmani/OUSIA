@@ -8,7 +8,7 @@ st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 col_logo, col_title = st.columns([1, 6])
 
 with col_logo:
-    st.image("logo.png", width=90)
+    st.image("logo.png", width=250)
 
 with col_title:
     st.title("OUSIA LLM Adaptive Response Simulator (2040)")
