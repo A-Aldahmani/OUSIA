@@ -1,4 +1,4 @@
 # OUSIA
-OUSIA LLM Reasoning Logic Simulation
+OUSIA LLM Reasoning Logic Simulation (Group 5 IP2 Demo)
 
-Group 5 IP2 Demo
+
