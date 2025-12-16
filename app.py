@@ -5,17 +5,14 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-col_title, col_logo = st.columns([3, 7], vertical_alignment="center")
+col_title, col_logo = st.columns([7, 3], vertical_alignment="center")
 
 with col_title:
     st.title("OUSIA LLM Adaptive Response Simulator (2040)")
 
 with col_logo:
-    st.markdown(
-        "<div style='text-align: right;'>",
-        unsafe_allow_html=True
-    )
-    st.image("logo.png", width=280)
+    st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+    st.image("logo.png", width=300)
     st.markdown("</div>", unsafe_allow_html=True)
     
 st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo</p>', unsafe_allow_html=True)
