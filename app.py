@@ -5,13 +5,13 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-col_title, col_logo = st.columns([5, 8], vertical_alignment="center")
+col_title, col_logo = st.columns([4, 7], vertical_alignment="center")
 
 with col_title:
     st.title("OUSIA LLM Adaptive Response Simulator (2040)")
 
 with col_logo:
-    st.image("logo.png", width=400)
+    st.image("logo.png", width=250)
     
 st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo</p>', unsafe_allow_html=True)
 st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
