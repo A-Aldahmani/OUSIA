@@ -5,7 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-col_logo, col_title = st.columns([2, 8])
+col_logo, col_title = st.columns([8, 20])
 
 with col_logo:
     st.image("logo.png", width=250)
