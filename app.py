@@ -5,7 +5,14 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-st.title("OUSIA LLM Adaptive Response Simulator (2040)")
+col_logo, col_title = st.columns([1, 6])
+
+with col_logo:
+    st.image("logo.png", width=90)
+
+with col_title:
+    st.title("OUSIA LLM Adaptive Response Simulator (2040)")
+    
 st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo</p>', unsafe_allow_html=True)
 st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
 
@@ -38,9 +45,10 @@ SCIFI_PROMPT = (
     "You MUST obey all policy gate restrictions exactly.\n"
 )
 
-# ----------------------------
-# Demo scenarios
-# ----------------------------
+##########################################
+# This is for the Demo Scenario selections
+##########################################
+
 DEMO_CASES = {
     "Minor cut + inflammation (repair)": {
         "symptoms": ["localized pain", "redness", "swelling"],
@@ -79,9 +87,10 @@ DEMO_CASES = {
     },
 }
 
-# ----------------------------
-# Policy gate (rules)
-# ----------------------------
+#######################################################
+# This part is for the Policy gate for the ethics rules
+########################################################
+
 def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> dict:
     """
     Hard rules that constrain what the goo is allowed to do.
@@ -109,9 +118,10 @@ def policy_gate(consent_level: int, goal: str, contraindications: list[str]) -> 
     return {"allowed": allowed, "reasons": reasons}
 
 
-# ----------------------------
-# MOCK LLM (deterministic simulation)
-# ----------------------------
+####################################################################################
+# This is the LLM Part (Will try both Huggingface LLM and Mock LLM for demo)
+####################################################################################
+
 def _detect_signals(patient: dict) -> list[str]:
     s = []
     symptoms = set(patient["symptoms"])
@@ -265,9 +275,10 @@ def mock_llm(patient: dict, gate: dict, mode: str) -> dict:
     }
 
 
-# ----------------------------
-# UI
-# ----------------------------
+#########################################################################
+# This is the UI part (Basically what everyone will see on the app page)
+#########################################################################
+
 st.subheader("1) Choose a Demo Scenario (For Ousia Thought Process)")
 
 case = st.selectbox("Demo Scenarios", ["(Custom)"] + list(DEMO_CASES.keys()))
