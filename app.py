@@ -399,14 +399,12 @@ with c2:
     st.info(", ".join(modes))
 
 left, center, right = st.columns([2, 3, 2])
-
 with center:
-    if st.button("Ingest OUSIA & Diagnose!", use_container_width=True):
-        with st.spinner("OUSIA is sensing..."):
-            result, reasoning = mock_llm(patient_state, gate, mode)
-            
-    # MOCK LLM CALL (replaces HF LLM)
-    result= mock_llm(patient_state, gate, mode)
+    run = st.button("Ingest OUSIA & Diagnose!", use_container_width=True):
+
+if run:
+    with st.spinner("OUSIA is sensing..."):
+        result = mock_llm(patient_state, gate, mode) # MOCK LLM CALL (replaces HF LLM)
 
     st.divider()
     st.subheader("3) OUSIA Results")
