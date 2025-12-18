@@ -282,7 +282,7 @@ def format_consent(consent_level: int) -> str:
         3: "Diagnosis, Repair & Augment allowed",
         4: "Diagnosis, Repair, Augment & Enhance allowed",
     }
-    return f"Consent Level: {consent_level} ( {mapping.get(consent_level, 'Unknown'))}"
+    return f"Consent Level: {consent_level} ( {mapping.get(consent_level, 'Unknown')} )"
 
 #########################################################################
 # This is the UI part (Basically what everyone will see on the app page)
