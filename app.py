@@ -398,7 +398,13 @@ with c2:
     modes = [k.capitalize() for k, v in gate["allowed"].items() if v]
     st.info(", ".join(modes))
 
-if st.button("Ingest OUSIA & Diagnose"):
+left, center, right = st.columns([2, 3, 2])
+
+with center:
+    if st.button("Ingest OUSIA & Diagnose!", use_container_width=True):
+        with st.spinner("OUSIA is sensing..."):
+            result, reasoning = mock_llm(patient_state, gate, mode)
+            
     # MOCK LLM CALL (replaces HF LLM)
     result= mock_llm(patient_state, gate, mode)
 
