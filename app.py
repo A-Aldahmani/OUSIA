@@ -5,31 +5,6 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-st.markdown(
-    """
-    <style>
-    div.stButton > button {
-        height: 3.5em;
-        font-size: 20px;
-        border-radius: 21px;
-        font-weight: 800;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-st.markdown(
-    """
-    <style>
-    div.stButton > button:hover {
-        transform: scale(1.02);
-        transition: 0.15s ease-in-out;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 col_title, col_logo = st.columns([6, 3], vertical_alignment="center")
 
 with col_title:
@@ -455,10 +430,35 @@ if run:
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
 
+
 st.markdown(
     "<div style='text-align:center; margin-top: 18px; padding: 14px; border-radius: 12px; "
     "background: rgba(0,0,0,0.06); font-size: 16px;'>"
     "<b>Now you know how OUSIA thinks!</b> Try changing symptoms or consent and ask again!"
     "</div>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    """
+    <style>
+    div.stButton > button {
+        height: 3.5em;
+        font-size: 20px;
+        border-radius: 21px;
+        font-weight: 800;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+st.markdown(
+    """
+    <style>
+    div.stButton > button:hover {
+        transform: scale(1.02);
+        transition: 0.15s ease-in-out;
+    }
+    </style>
+    """,
     unsafe_allow_html=True
 )
