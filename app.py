@@ -5,7 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-col_title, col_logo = st.columns([7, 3], vertical_alignment="center")
+col_title, col_logo = st.columns([5, 3], vertical_alignment="center")
 
 with col_title:
     st.title("Ask the OUSIA Goo!")
