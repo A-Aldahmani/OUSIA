@@ -403,9 +403,9 @@ if st.button("Ingest OUSIA & Diagnose"):
     result= mock_llm(patient_state, gate, mode)
 
     st.divider()
-    st.subheader("3) Results")
+    st.subheader("3) OUSIA Results")
 
-    st.markdown("### Decision")
+    st.markdown("### The Decision")
     st.write(f"**{result['decision'].upper()}**")
 
     st.markdown("### What the Goo Senses")
