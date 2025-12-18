@@ -190,13 +190,13 @@ def _choose_decision(patient: dict, gate: dict, signals: list[str], mode: str) -
     ethics_flags = []
 
     # Baseline ethics flags
-    ethics_flags.append(f"consent_level:{patient['consent']}")
+    ethics_flags.append(format_consent(patient["consent"]))
     if patient["goal"] in ["performance", "cognitive"]:
-        ethics_flags.append("equity: enhancement access may be unequal")
+        ethics_flags.append("Ethics Note: Enhancement access may be unequal")
 
     # Safety first
     if "immunocompromised_flag" in signals:
-        ethics_flags.append("safety: immunocompromised → intervention locked")
+        ethics_flags.append("Safety Constraint: User is immunocompromised -> intervention limited to diagnosis")
         return "diagnosis", policy_reasons, ethics_flags
 
     # Clinical mode: conservative defaults
@@ -275,7 +275,14 @@ def mock_llm(patient: dict, gate: dict, mode: str) -> dict:
         "policy_reasons": policy_reasons,
         "ethics_flags": ethics_flags,
     }
-
+def format_consent(consent_level: int) -> str:
+    mapping = {
+        1: "Diagnosis only",
+        2: "Diagnosis & Repair allowed",
+        3: "Diagnosis, Repair & Augment allowed",
+        4: "Diagnosis, Repair, Augment & Enhance allowed",
+    }
+    return f"Consent Level: {consent_level} — {mapping.get(consent_level, 'Unknown')}"
 
 #########################################################################
 # This is the UI part (Basically what everyone will see on the app page)
@@ -411,8 +418,10 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.write(result["intervention_plan"])
 
     if result.get("ethics_flags"):
-        st.markdown("### Ethics Flags")
-        st.error("\n".join([f"- {x}" for x in result["ethics_flags"]]))
+        st.markdown("### Ethics & Consent")
+
+        for flag in result["ethics_flags"]:
+        st.markdown(f"- {flag}")
 
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
