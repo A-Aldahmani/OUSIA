@@ -10,9 +10,9 @@ st.markdown(
     <style>
     div.stButton > button {
         height: 3.5em;
-        font-size: 35px;
-        border-radius: 14px;
-        font-weight: 600;
+        font-size: 20px;
+        border-radius: 21px;
+        font-weight: 800;
     }
     </style>
     """,
