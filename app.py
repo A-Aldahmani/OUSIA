@@ -10,9 +10,20 @@ st.markdown(
     <style>
     div.stButton > button {
         height: 3.5em;
-        font-size: 25px;
+        font-size: 20px;
         border-radius: 21px;
         font-weight: 800;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+st.markdown(
+    """
+    <style>
+    div.stButton > button:hover {
+        transform: scale(1.02);
+        transition: 0.15s ease-in-out;
     }
     </style>
     """,
