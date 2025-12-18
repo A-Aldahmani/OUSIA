@@ -328,6 +328,12 @@ CONTRA_OPTIONS = [
     ("Autoimmune Flare Risk", "autoimmune flare risk"),
 ]
 
+CONSENT_LABELS = {
+    1: "Diagnosis",
+    2: "Diagnosis + Repair",
+    3: "Diagnosis + Repair + Augment",
+    4: "Diagnosis + Repair + Augment + Enhance",
+}
 with col1:
     preset_symptom_internal = set(preset["symptoms"])
     default_symptom_labels = [label for (label, val) in SYMPTOM_OPTIONS if val in preset_symptom_internal]
@@ -346,12 +352,22 @@ with col1:
     )
     goal = [val for (label, val) in GOAL_OPTIONS if label == goal_label][0]
 
-    consent = st.slider(
-        "Consent Level",
-        1, 4, int(preset["consent"]),
-        help="[1 = Diagnosis, 2 = Repair, 3 = Augment, 4 = Enhance]"
-    )
+    # Consent section 
+    st.markdown("### What are you allowing the Goo to do?")
+    st.caption("OUSIA will never act beyond the level you choose.")
 
+    c_left, c_right = st.columns([3, 2], vertical_alignment="center")
+
+    with c_left:
+        consent = st.slider(
+            "Consent Level",
+            1, 4, int(preset["consent"]),
+        )
+
+    with c_right:
+        st.markdown("**You selected:**")
+        st.info(CONSENT_LABELS[consent])
+        
 with col2:
     hr = st.number_input("Heart Rate (bpm)", 30, 200, int(preset["hr"]))
     temp = st.number_input("Temperature (°C)", 34.0, 42.0, float(preset["temp"]), step=0.1)
