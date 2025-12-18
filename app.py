@@ -426,4 +426,10 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
 
-st.markdown('<p style="font-size: 25px;">Now you know how OUSIA thinks!</p>', unsafe_allow_html=True)
+st.markdown(
+    "<div style='text-align:center; margin-top: 18px; padding: 14px; border-radius: 12px; "
+    "background: rgba(0,0,0,0.06); font-size: 16px;'>"
+    "<b>Now you know how OUSIA thinks!</b> Try changing symptoms or consent and ask again!"
+    "</div>",
+    unsafe_allow_html=True
+)
