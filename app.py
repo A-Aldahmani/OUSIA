@@ -400,7 +400,7 @@ with c2:
 
 left, center, right = st.columns([2, 3, 2])
 with center:
-    run = st.button("Ingest OUSIA & Diagnose!", use_container_width=True):
+    run = st.button("Ingest OUSIA & Diagnose!", use_container_width=True)
 
 if run:
     with st.spinner("OUSIA is sensing..."):
