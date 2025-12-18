@@ -329,10 +329,10 @@ CONTRA_OPTIONS = [
 ]
 
 CONSENT_LABELS = {
-    1: "Diagnosis",
-    2: "Diagnosis + Repair",
-    3: "Diagnosis + Repair + Augment",
-    4: "Diagnosis + Repair + Augment + Enhance",
+    1: "Diagnose",
+    2: "Diagnose  Repair",
+    3: "Diagnosis  Repair  Augment",
+    4: "Diagnosis  Repair  Augment  Enhance",
 }
 with col1:
     preset_symptom_internal = set(preset["symptoms"])
