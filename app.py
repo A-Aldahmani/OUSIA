@@ -420,8 +420,8 @@ if st.button("Ingest OUSIA & Diagnose"):
     if result.get("ethics_flags"):
         st.markdown("### Ethics & Consent")
 
-        for flag in result["ethics_flags"]:
-        st.markdown(f"- {flag}")
+    for flag in result["ethics_flags"]:
+    st.markdown(f"- {flag}")
 
     st.markdown("### Full Structured Output in JSON")
     st.code(json.dumps(result, indent=2), language="json")
