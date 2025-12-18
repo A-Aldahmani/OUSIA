@@ -5,20 +5,6 @@ import streamlit as st
 
 st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 
-st.markdown(
-    """
-    <style>
-    h1 {
-        margin-bottom: 0.2rem;
-    }
-    .stAlert {
-        margin-top: 0.3rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
 col_title, col_logo = st.columns([6, 3], vertical_alignment="center")
 
 with col_title:
