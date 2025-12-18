@@ -8,15 +8,15 @@ st.set_page_config(page_title="OUSIA Simulator", layout="centered")
 col_title, col_logo = st.columns([7, 3], vertical_alignment="center")
 
 with col_title:
-    st.title("OUSIA LLM Adaptive Response Simulator (2040)")
+    st.title("Ask the OUSIA Goo!")
 
 with col_logo:
     st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
     st.image("logo.png", width=300)
     st.markdown("</div>", unsafe_allow_html=True)
     
-st.markdown('<p style="font-size: 20px;">Group 5 IP2 LLM Demo</p>', unsafe_allow_html=True)
-st.caption("LLM Logic: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
+st.markdown('<p style="font-size: 20px;">OUSIA Goo: Scan, Decide, Support! (Group 5 IP2 Demo)</p>', unsafe_allow_html=True)
+st.caption("OUSIA Logic Flow: Ingest -> Diagnose -> Decide -> Act (With Consent + Policy Gating)")
 
 mode = st.radio(
     "Governing Framework",
@@ -377,17 +377,17 @@ gate = policy_gate(consent, goal, contra)
 
 c1, c2 = st.columns([1, 1])
 with c1:
-    st.markdown("### Policy Gate")
+    st.markdown("### Safety & Consent Rules")
     display_gate = {k.capitalize(): v for k, v in gate["allowed"].items()}
     st.write(display_gate)
 
     if gate["reasons"]:
         st.warning("\n".join(gate["reasons"]))
     else:
-        st.success("No policy blocks triggered.")
+        st.success("No Policy Blocks Triggered.")
 
 with c2:
-    st.markdown("### Allowed Modes")
+    st.markdown("### Allowed Modes (Based on Consent)")
     modes = [k.capitalize() for k, v in gate["allowed"].items() if v]
     st.info(", ".join(modes))
 
@@ -401,13 +401,13 @@ if st.button("Ingest OUSIA & Diagnose"):
     st.markdown("### Decision")
     st.write(f"**{result['decision'].upper()}**")
 
-    st.markdown("### Detected Signals")
+    st.markdown("### What the Goo Senses")
     st.write(result["detected_signals"])
 
-    st.markdown("### Likely Conditions")
+    st.markdown("### What the Goo Thinks Is Happening")
     st.write(result["likely_conditions"])
 
-    st.markdown("### Intervention Plan")
+    st.markdown("### What the Goo Wants to Do")
     st.write(result["intervention_plan"])
 
     if result.get("ethics_flags"):
